@@ -1,0 +1,182 @@
+First step: create a jenkin 
+
+sudo apt update               
+java -version
+sudo apt install openjdk-21-jdk -y
+curl -fsSL https://pkg.jenkins.io/debian/jenkins.io-2023.key | sudo tee \
+  /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+  https://pkg.jenkins.io/debian binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+sudo apt update
+sudo apt install jenkins -y
+sudo apt install maven -y 
+
+
+**Jenkins setup - Amazon Linux 2023 6.1**
+
+   sudo dnf update -y
+
+   sudo dnf install java-17-amazon-corretto-devel -y
+
+   sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+
+   sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+
+   sudo dnf install jenkins -y
+
+   sudo systemctl daemon-reload
+
+   sudo systemctl enable jenkins
+
+   sudo systemctl start jenkins
+
+   sudo systemctl status jenkins
+
+
+If you find the node offline; follow the below
+This error occurs because Jenkins monitors disk space by default, and your /tmp partition is running low. On Amazon Linux 2023, the /tmp directory is mounted in memory (tmpfs) by default, which is limited even though you have a 30GB EBS volume.
+
+\# Create a new /tmp directory on your EBS volume
+
+sudo mkdir /mnt/tmp
+sudo chmod 1777 /mnt/tmp
+
+
+\# Move the existing tmp contents
+sudo rsync -av /tmp/ /mnt/tmp/
+\# Update fstab to use the new location
+echo "none /tmp tmpfs defaults,size=2G 0 0" | sudo tee -a /etc/fstab
+
+
+
+====================================================
+
+Download Tomcat:
+https://downloads.apache.org/tomcat/tomcat-9/v9.0.109/bin/apache-tomcat-9.0.109.tar.gz
+
+wget https://downloads.apache.org/tomcat/tomcat-9/v9.0.109/bin/apache-tomcat-9.0.109.tar.gz
+
+tar xvf apache-tomcat-9.0.109.tar.gz
+
+1st step:
+cd /webapps/manager/META-INF/
+
+vi context.xml
+
+<Context antiResourceLocking="false" privileged="true" >
+  <CookieProcessor className="org.apache.tomcat.util.http.Rfc6265CookieProcessor"
+                   sameSiteCookies="strict" />
+  <Valve className="org.apache.catalina.valves.RemoteAddrValve"
+         allow=".*" />   #→ update like
+
+cd ../../..
+
+2nd:
+ cd /conf
+vi tomcat-users.xml   #to provide user name pw access admin
+
+<role rolename="manager-gui" />
+<user username="tomcat" password="tomcat" roles="manager-gui" />
+<role rolename="admin-gui" />
+<role rolename="manager-script" />
+<user username="admin" password="admin" roles="manager-gui,admin-gui,manager-script"/>
+
+
+
+
+
+3rd step need to setup port 9090:
+vi server.xml 
+
+<Connector port="9090" protocol="HTTP/1.1"
+               connectionTimeout="20000"
+               redirectPort="8443"
+               maxParameterCount="1000"
+               />
+
+cd ..
+
+4th step start tomcat server:
+cd bin
+./startup.sh
+
+
+
+//Now start working on jenkins plugins:
+Stage view
+Eclipse Temurin installer
+Deploy to container
+Maven Integration
+
+
+Restart jenkinns
+
+Now need to configure maven  -> manage jenkins -> tools maven add below
+maven3  -> 3.9.11
+
+
+Step next deploy project:
+
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Git checkout') {
+            steps {
+                git 'https://github.com/Sidharth1810/java-project-maven-new.git'
+            }
+        }
+        stage('Compile') {
+            steps {
+               sh 'mvn compile'
+            }
+        }
+          stage('package') {
+            steps {
+               sh 'mvn clean package'
+            }
+        }
+         stage('store artifacte') {
+            steps {
+         deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tom_crd', path: '', url: 'http://34.217.18.3:8080/')], contextPath: 'hotstar', war: '**/*.war'
+            }
+        }
+    }
+}
+
+
+
+
+=====================================================================
+
+EC2 -> jenkins -> tomcat -> git-> maven
+I we build multiple builds or jobs jenkins slow down because of storage cpu all (build, trigger and deploy all in one place)
+
+EC2 → inside java jenkins create and build the jobs
+Create job and trigger the job 
+
+
+
+ssh connection to connect master node with worker nodes
+Master and slave 
+
+Spot instances
+
+Jenkins fallows a master - agent arch
+It consists of two components
+Jenkins master NNode
+Jenkins agent (workers node)
+ 
+We will configure labels to the worked nodes on jenkins master node
+Label <agent node>
+
+
+Jenkins master and slave
+RBAC
+Final jenkins project -  Git hub + jenkins + sonar Qube _ nexus - S3 - tomcat
+
+
+
+
